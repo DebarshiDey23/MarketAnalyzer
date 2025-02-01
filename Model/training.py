@@ -1,40 +1,46 @@
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
-import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
+from sklearn.metrics import accuracy_score, classification_report
+import numpy as np
 
-# Function to prepare the data for training
-def prepare_data(df):
-    # Define features (X) and target (y)
-    X = df[['4. close', 'SMA_50', 'RSI']]  # Example: using closing price, 50-day SMA, and RSI
-    y = df['4. close'].shift(-1)  # Predict the next day's closing price
-
-    # Drop the last row because the shifted target will have NaN for the last row
-    X = X[:-1]
-    y = y[:-1]
-
-    return X, y
-
-# Function to train and evaluate the model
 def train_and_evaluate(X, y):
-    # Split into training and testing data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+    """Trains and evaluates a stock movement prediction model with multiple stocks."""
 
-    # Initialize the model
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    # Split data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False, random_state=42)
 
-    # Train the model
-    model.fit(X_train, y_train)
+    # Define hyperparameter grid
+    param_grid = {
+        'n_estimators': [100, 200, 300, 400],
+        'max_depth': [5, 10, 20, None],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4],
+        'max_features': ['sqrt', 'log2']
+    }
 
-    # Predict on the test set
-    y_pred = model.predict(X_test)
+    # Initialize Random Forest Classifier
+    rf = RandomForestClassifier(random_state=42)
 
-    # Evaluate the model
-    mse = mean_squared_error(y_test, y_pred)
-    print(f'Mean Squared Error: {mse}')
+    # Hyperparameter tuning using RandomizedSearchCV
+    search = RandomizedSearchCV(
+        estimator=rf, param_distributions=param_grid,
+        n_iter=20, cv=5, scoring='accuracy', n_jobs=-1, random_state=42
+    )
+    search.fit(X_train, y_train)
 
-    # Plot actual vs predicted values
-    plt.plot(y_test.index, y_test, label='Actual')
-    plt.plot(y_test.index, y_pred, label='Predicted')
-    plt.legend()
-    plt.show()
+    # Get best model
+    best_model = search.best_estimator_
+
+    # Predict on test set
+    y_pred = best_model.predict(X_test)
+
+    # Evaluate model
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"Best Model Accuracy: {accuracy:.4f}")
+    print(classification_report(y_test, y_pred))
+
+    # Cross-validation
+    cv_scores = cross_val_score(best_model, X, y, cv=5, scoring='accuracy')
+    print(f"Cross-Validation Accuracy: {np.mean(cv_scores):.4f}")
+
+    return best_model
