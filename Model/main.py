@@ -1,21 +1,18 @@
-from datacollection import data_collection, prepare_data
+from datacollection import prepare_data
 from training import train_and_evaluate
 
-def main(symbols):
-    """Runs the stock prediction model on multiple tech stocks."""
-    df = data_collection(symbols)
+def main():
+    symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META']
+    X, y = prepare_data(symbols)
 
-    if df is None or df.empty:
-        print("No data collected.")
+    if X is None or y is None or X.empty or y.empty:
+        print("Error: No valid data available for training.")
         return
 
-    X, y = prepare_data(df)
+    print(f"Data Shape - X: {X.shape}, y: {y.shape}")  # Debugging line
+    model = train_and_evaluate(X, y)
+    
+    print("Training completed. Model is ready for predictions.")
 
-    # Train and evaluate the model
-    train_and_evaluate(X, y)
-
-# Define the tech stocks to train on
-tech_stocks = ['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'AMZN']
-
-# Run main function with multiple stocks
-main(tech_stocks)
+if __name__ == "__main__":
+    main()

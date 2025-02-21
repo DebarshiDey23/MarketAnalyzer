@@ -1,46 +1,35 @@
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
-from sklearn.metrics import accuracy_score, classification_report
 import numpy as np
+import xgboost as xgb
+from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.utils.class_weight import compute_class_weight
 
 def train_and_evaluate(X, y):
-    """Trains and evaluates a stock movement prediction model with multiple stocks."""
+    """Trains a model to predict stock movement (up/down)."""
+    
+    # Convert target into binary classification (1 = up, 0 = down)
+    y_binary = np.where(y > X["4. close"], 1, 0)
 
-    # Split data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False, random_state=42)
+    # Ensure X and y_binary are aligned
+    X, y_binary = X.iloc[:-1], y_binary[:-1]
 
-    # Define hyperparameter grid
-    param_grid = {
-        'n_estimators': [100, 200, 300, 400],
-        'max_depth': [5, 10, 20, None],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4],
-        'max_features': ['sqrt', 'log2']
-    }
+    print(f"Training Data Shape - X: {X.shape}, y: {y_binary.shape}")  # Debugging
 
-    # Initialize Random Forest Classifier
-    rf = RandomForestClassifier(random_state=42)
+    # Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y_binary, test_size=0.2, shuffle=False, random_state=42)
 
-    # Hyperparameter tuning using RandomizedSearchCV
-    search = RandomizedSearchCV(
-        estimator=rf, param_distributions=param_grid,
-        n_iter=20, cv=5, scoring='accuracy', n_jobs=-1, random_state=42
-    )
-    search.fit(X_train, y_train)
-
-    # Get best model
-    best_model = search.best_estimator_
-
-    # Predict on test set
-    y_pred = best_model.predict(X_test)
+    # Train model using XGBClassifier (not Booster)
+    model = XGBClassifier(n_estimators=200, max_depth=10, random_state=42)
+    model.fit(X_train, y_train)
 
     # Evaluate model
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f"Best Model Accuracy: {accuracy:.4f}")
+    y_pred = model.predict(X_test)
+    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
     print(classification_report(y_test, y_pred))
 
     # Cross-validation
-    cv_scores = cross_val_score(best_model, X, y, cv=5, scoring='accuracy')
+    cv_scores = cross_val_score(model, X, y_binary, cv=5, scoring='accuracy')
     print(f"Cross-Validation Accuracy: {np.mean(cv_scores):.4f}")
 
-    return best_model
+    return model
