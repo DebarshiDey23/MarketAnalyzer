@@ -4,6 +4,7 @@ from training import train_and_evaluate
 def main():
     symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META']
     X, y = prepare_data(symbols)
+    print("Columns in X:", X.columns)
 
     if X is None or y is None or X.empty or y.empty:
         print("Error: No valid data available for training.")

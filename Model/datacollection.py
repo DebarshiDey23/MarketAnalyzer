@@ -4,6 +4,8 @@ import numpy as np
 from dotenv import load_dotenv
 import os
 import requests
+from sentiment_analyzer import analyze_sentiment  # Import sentiment function
+
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")  # Not needed for yfinance but can be useful for other APIs
@@ -30,13 +32,28 @@ def fetch_stock_data(symbol):
         print(f"Request Error for {symbol}: {e}")
         return None
 
+def fetch_sentiment_data(symbol):
+    """Dummy function: Replace with real scraping of news & tweets for sentiment."""
+    sample_texts = [
+        "Stock is performing well!",
+        "Market is crashing, huge losses!",
+        "Analysts predict steady growth."
+    ]
+    
+    sentiments = [analyze_sentiment(text, source="news") for text in sample_texts]  # Change to 'social' for tweets
+    avg_sentiment = np.mean(sentiments)  # Get average sentiment score
+
+    return avg_sentiment
+
 def prepare_data(symbols):
-    """Fetch and prepare stock data for multiple symbols."""
+    """Fetch stock data and integrate sentiment scores."""
     all_data = []
 
     for symbol in symbols:
         df = fetch_stock_data(symbol)
         if df is not None:
+            sentiment_score = fetch_sentiment_data(symbol)  # Get sentiment score
+            df["sentiment"] = sentiment_score  # Add to DataFrame
             print(f"Fetched {symbol}: {df.shape}")  # Debugging line
             all_data.append(df)
 
@@ -59,11 +76,17 @@ def prepare_data(symbols):
     full_df["SMA_50"] = full_df["4. close"].rolling(window=50).mean()
     full_df["Momentum"] = full_df["4. close"].diff(3)
     full_df["Volatility"] = full_df["4. close"].rolling(window=10).std()
+    full_df["sentiment_change"] = full_df["sentiment"].diff()
+    full_df["sentiment_rolling"] = full_df["sentiment"].rolling(window=5).mean()
 
     # Fill NaN values
     full_df = full_df.fillna(0)
 
-    X = full_df[["4. close", "SMA_10", "SMA_50", "Momentum", "Volatility"]].copy()
+    # Ensure sentiment column exists
+    if "sentiment" not in full_df.columns:
+        full_df["sentiment"] = 0  # Default if missing
+
+    X = full_df[["4. close", "SMA_10", "SMA_50", "Momentum", "Volatility", "sentiment", "sentiment_change", "sentiment_rolling"]]
     y = full_df["4. close"].shift(-1)
 
     # Drop the last row to ensure X and y have the same length
